@@ -1,0 +1,2 @@
+# SchoolPlanner
+Canvas assignment planner
