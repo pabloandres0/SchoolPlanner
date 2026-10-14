@@ -17,7 +17,6 @@ if user_choice.isdigit():
 
     if 0 <= choice_num < len(script_list):
         message, script = script_list[choice_num]
-        print(f"\nRunning {script} ({message})...\n")
 
         # Run the python script
         subprocess.run(["python3", script])

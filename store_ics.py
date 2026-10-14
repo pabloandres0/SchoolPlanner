@@ -20,7 +20,7 @@ def validate_ics_existence(url):  # Take .ics url and test if it's available
     return False
 
 
-ics_url = str(input("Visit your Canvas calendar page and look for 'Calendar Feed'.\nEnter your iCalendar (.ics) feed URL: "))
+ics_url = str(input("\nVisit your Canvas calendar page and look for 'Calendar Feed'.\nEnter your iCalendar (.ics) feed URL: "))
 print(validate_ics_existence(ics_url))
 
 ics_url = {
