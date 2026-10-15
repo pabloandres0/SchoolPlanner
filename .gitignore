@@ -1,4 +1,6 @@
-config.json
+files/config.json
+files/calendar.ics
+files/events.json
 __pycache__/
 *.pyc
 .prettierrc

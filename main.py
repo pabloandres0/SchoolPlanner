@@ -1,4 +1,6 @@
+import os
 import subprocess
+import sys
 
 #   [message, script name]
 options = {
@@ -13,13 +15,12 @@ for index, (message, _) in enumerate(script_list, start=1):
 user_choice = input("Choose an option: ")
 
 if user_choice.isdigit():
-    choice_num = int(user_choice) - 1  # Convert to 0-based index
+    choice_num = int(user_choice) - 1
 
     if 0 <= choice_num < len(script_list):
-        message, script = script_list[choice_num]
-
-        # Run the python script
-        subprocess.run(["python3", script])
+        _, script = script_list[choice_num]
+        script_path = os.path.join(os.path.dirname(__file__), script)
+        subprocess.run([sys.executable, script_path], check=True)
     else:
         print("Invalid option number.")
 else:

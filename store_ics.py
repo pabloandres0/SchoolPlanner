@@ -1,4 +1,5 @@
 import json
+from pathlib import Path
 import urllib.request
 from urllib.parse import urlparse
 
@@ -23,9 +24,10 @@ def validate_ics_existence(url):  # Take .ics url and test if it's available
 ics_url = str(input("\nVisit your Canvas calendar page and look for 'Calendar Feed'.\nEnter your iCalendar (.ics) feed URL: "))
 print(validate_ics_existence(ics_url))
 
-ics_url = {
-    "urlFeed": ics_url
-}
+config = {"urlFeed": ics_url}
+files_dir = Path(__file__).resolve().parent / "files"
+files_dir.mkdir(parents=True, exist_ok=True)
+config_path = files_dir / "config.json"
 
-with open("config.json", "w") as file:
-    json.dump(ics_url, file, indent=4)
+with config_path.open("w", encoding="utf-8") as file:
+    json.dump(config, file, indent=4)
