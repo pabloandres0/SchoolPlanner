@@ -127,11 +127,7 @@ def load_schedule(path=SCHEDULE_PATH):
 
 
 def get_week_assignments(events, now, keywords, priorities, days_ahead=DAYS_AHEAD):
-    """Keep assignments due within the next `days_ahead` days.
-
-    Each returned task is a dict with the estimated hours and priority added.
-    Tasks are sorted by due date.
-    """
+ 
     limit = now + timedelta(days=days_ahead)
     tasks = []
     for event in events:
@@ -156,11 +152,6 @@ def get_week_assignments(events, now, keywords, priorities, days_ahead=DAYS_AHEA
 
 
 def build_free_slots(now, last_day, busy_blocks):
-    """Return {date: [slot_start, ...]} of free 30-minute slots.
-
-    A slot is free when it is in the future and does not overlap any busy
-    block on that weekday.
-    """
     free_slots = {}
     day = now.date()
     while day <= last_day:
@@ -267,7 +258,6 @@ def build_schedule(tasks, busy_blocks, now):
 
 
 def format_schedule(schedule):
-    """Return the schedule as printable text, grouped day by day."""
     if schedule.empty:
         return "The schedule is empty."
 
