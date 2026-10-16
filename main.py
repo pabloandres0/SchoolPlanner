@@ -8,7 +8,7 @@ import scheduler
 import store_ics
 from estimator import load_keywords
 from fetch import fetch_calendar, use_sample_calendar
-from paths import BUSY_HOURS_PATH, SCHEDULE_PATH
+from paths import BUSY_HOURS_PATH, SCHEDULE_PATH, EXPORT_PATH
 
 EXPECTED_ERRORS = (FileNotFoundError, json.JSONDecodeError, OSError, URLError, ValueError)
 
@@ -125,6 +125,15 @@ def view_schedule():
         return
     print(scheduler.format_schedule(schedule))
 
+def export_schedule():
+    schedule = scheduler.load_schedule()
+    if schedule.empty:
+        print("No saved schedule yet. Choose 'Generate schedule' first.")
+        return
+    count = scheduler.export_schedule_ics(schedule)
+    print(f"{count} study blocks exported to: {EXPORT_PATH}")
+    print("In Google Calendar: Settings > Import & export > Import, then pick that file.")
+
 MENU = {
     1: ("Set up Canvas calendar URL", store_ics.setup_url),
     2: ("Download my Canvas calendar", fetch_calendar),
@@ -134,6 +143,7 @@ MENU = {
     6: ("Add busy hours (classes, work...)", add_busy_hours),
     7: ("Generate my homework schedule", generate_schedule),
     8: ("View saved schedule", view_schedule),
+    9: ("Export schedule to .ics file", export_schedule),
 }
 EXIT_OPTION = len(MENU) + 1
 

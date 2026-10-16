@@ -1,12 +1,13 @@
 
 import json
 import math
-from datetime import date, datetime, time, timedelta
+from datetime import date, datetime, time, timedelta, timezone
 
 import pandas as pd
+from icalendar import Calendar, Event
 
 from estimator import estimate_hours, load_keywords
-from paths import BUSY_HOURS_PATH, EVENTS_PATH, PRIORITIES_PATH, SCHEDULE_PATH
+from paths import BUSY_HOURS_PATH, EVENTS_PATH, PRIORITIES_PATH, SCHEDULE_PATH, EXPORT_PATH
 
 SLOT_MINUTES = 30        
 STUDY_START_HOUR = 8     
@@ -260,6 +261,30 @@ def build_schedule(tasks, busy_blocks, now):
         })
     return pd.DataFrame(rows), warnings
 
+def export_schedule_ics(schedule, path=EXPORT_PATH):
+    calendar = Calendar()
+    calendar.add("prodid", "-//SchoolPlanner//Study schedule//EN")
+    calendar.add("version", "2.0")
+
+    for index, row in schedule.iterrows():
+        start = datetime.strptime(f"{row['date']} {row['start']}", "%Y-%m-%d %H:%M")
+        if row["end"] == "24:00":
+            end = datetime.strptime(row["date"], "%Y-%m-%d") + timedelta(days=1)
+        else:
+            end = datetime.strptime(f"{row['date']} {row['end']}", "%Y-%m-%d %H:%M")
+
+        event = Event()
+        event.add("uid", f"{row['date']}-{row['start']}-{index}@schoolplanner")
+        event.add("dtstamp", datetime.now(timezone.utc))
+        event.add("summary", f"Study: {row['assignment']} [{row['course']}]")
+        event.add("dtstart", start.astimezone().astimezone(timezone.utc))
+        event.add("dtend", end.astimezone().astimezone(timezone.utc))
+        event.add("description", f"Priority: {row['priority']}. Due: {row['due']}")
+        calendar.add_component(event)
+
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_bytes(calendar.to_ical())
+    return len(schedule)
 
 def format_schedule(schedule):
     if schedule.empty:
