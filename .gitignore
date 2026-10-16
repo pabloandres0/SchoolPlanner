@@ -1,9 +1,12 @@
-files/config.json
-files/calendar.ics
-files/events.json
+# Personal data created while the program runs (Canvas link, calendar, schedule)
+files/
+
+# Python
 __pycache__/
 *.pyc
-.prettierrc
-.vscode/
 .venv/
+
+# Editors / OS
+.vscode/
+.prettierrc
 .DS_Store

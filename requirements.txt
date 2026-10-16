@@ -1,4 +1,2 @@
-flet
-pillow
-pystray
 icalendar
+pandas
