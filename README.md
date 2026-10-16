@@ -1,21 +1,31 @@
 # SchoolPlanner
 ### Plan your days, weeks, even your month!
 
-A Canvas task planner compatible with your daily school and extracurricular schedules powered by AI.
+# The project is a Canvas schedule task planner, with AI it analizes their homeworks and with the times for each homework that is addead to each one, the AI creates the best schedule focusing on the most important homeworks, the ones that take the most and also the due dates, of what is the nearest to the due date, and focuses the schedule to these works.
 
-## Usage
-1. Visit your school's **Canvas** calendar
-<img width="50%" alt="g" src="https://github.com/user-attachments/assets/9a2a30ad-d095-4cc0-a47f-c993a79f8c52" />
 
-2. Click on Calendar Feed and copy the URL it gives you
-<img width="50%" alt="image" src="https://github.com/user-attachments/assets/a1166839-7d3d-4281-a639-02b89763d580" />
+# Clone the Github repository before you do anything else
 
-3. (FOR NOW) Open Terminal/Command Prompt and change your directory to the project's folder
+# To install the libraries needed, you need to enter to CMD, and add the following text:
 
-<img width="40%" alt="image" src="https://github.com/user-attachments/assets/1d796443-475c-4b3b-bf80-1c0fec274e7b" />
+# cd C:\Users\"your name"\Downloads\SchoolPlanner, you need to search in your Explorador de Archivos and search for the folder SchoolPlanner, then copy the link above in Explorador de Archivos; then write: pip install -r requirements.txt. 
 
-4. Run the main.py script
-<img width="40%" alt="image" src="https://github.com/user-attachments/assets/94a24ecb-a403-4b78-b192-6e0139a4a1b4" />
+# With that you already installed all the libraries needed for the code. Don't close CMD.
+# In case you closed it, copy: cd C:\Users\"your name"\Downloads\SchoolPlanner
 
-5. Choose 1 and paste your URL
-<img width="40%" alt="image" src="https://github.com/user-attachments/assets/e13d287a-336d-4d87-8629-21358b0eca92" />
+# To run the program do it in the same CMD you already typed, and type: python main.py
+# With that you are ready to run the code
+
+# Implemented Features so far:
+# -Download the link of Canvas Calendar
+# -Download and clean the homeworks
+# -Filter the homeworks for the next 7 days
+# -Estimate hours with key words
+# -Priotize the nearest assignments
+# -Generate a calendar by blocks
+# -Export to .ics for Google Calendar
+# -Saves data between executions
+
+# Canvas displays the delivery dates but doesn't tell you when to do each assignment, so the program helps us create a schedule which you can customize by free time, and priority order.
+
+# Video: https://drive.google.com/file/d/1Zyqx58Io2WkDO-PwYeMSOpKwedRa0rbh/view?usp=sharing
