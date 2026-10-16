@@ -242,6 +242,10 @@ def build_schedule(tasks, busy_blocks, now):
     rows = []
     for block in merge_slots_into_blocks(assigned):
         task = block["task"]
+        if block["end"].date() > block["start"].date():
+                end_text = "24:00"
+            else:
+                end_text = block["end"].strftime("%H:%M")
         hours = (block["end"] - block["start"]).seconds / 3600
         rows.append({
             "date": block["start"].strftime("%Y-%m-%d"),

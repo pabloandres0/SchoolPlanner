@@ -1,8 +1,34 @@
-
 import json
 import re
 from datetime import date, datetime
+
 from icalendar import Calendar
+
+
+def split_summary(summary_raw):
+    summary = summary_raw.strip()
+    match = re.search(r"\[(.*?)\]$", summary)
+    if match is None:
+        return summary, "General"
+    course_code = match.group(1)
+    title = summary.replace(f"[{course_code}]", "").strip()
+    return title, course_code
+
+
+def format_start(start_value):
+    if isinstance(start_value, datetime):  
+        return start_value.isoformat()
+    if isinstance(start_value, date):
+        return start_value.strftime("%Y-%m-%d")
+    return None
+
+
+def clean_description(description_raw):
+    return (
+        description_raw.replace("\\n", "\n")
+        .replace("\\,", ",")
+        .strip()
+    )
 
 
 def procesar_calendario_canvas(
@@ -11,73 +37,43 @@ def procesar_calendario_canvas(
     palabra_clave=None,
     materia_filtro=None,
 ):
-    with open(archivo_ics_entrada, "rb") as f:
-        cal = Calendar.from_ical(f.read())
+ 
+    with open(archivo_ics_entrada, "rb") as ics_file:
+        calendar = Calendar.from_ical(ics_file.read())
 
-    eventos_limpios = []
+    clean_events = []
 
-    for componente in cal.walk():
-        if componente.name == "VEVENT":
-            summary_raw = str(componente.get("summary", ""))
+    # walk() visits every component; we only care about the events (VEVENT).
+    for component in calendar.walk():
+        if component.name != "VEVENT":
+            continue
 
-            match_materia = re.search(r"\[(.*?)\]$", summary_raw.strip())
-            codigo_materia = (
-                match_materia.group(1)
-                if match_materia
-                else "General"
-            )
-            titulo = (
-                summary_raw.replace(f"[{codigo_materia}]", "").strip()
-                if match_materia
-                else summary_raw.strip()
-            )
+        title, course_code = split_summary(str(component.get("summary", "")))
 
-            if (
-                materia_filtro
-                and materia_filtro.lower() not in codigo_materia.lower()
-            ):
-                continue
+        # Course filter (case-insensitive).
+        if materia_filtro and materia_filtro.lower() not in course_code.lower():
+            continue
 
-            dtstart_obj = (
-                componente.get("dtstart").dt
-                if componente.get("dtstart")
-                else None
-            )
-            dtend_obj = (
-                componente.get("dtend").dt if componente.get("dtend") else None
-            )
+        start_property = component.get("dtstart")
+        start_text = format_start(start_property.dt if start_property else None)
+        description = clean_description(str(component.get("description", "")))
+        if (
+            palabra_clave
+            and palabra_clave.lower() not in title.lower()
+            and palabra_clave.lower() not in description.lower()
+        ):
+            continue
 
-            if isinstance(dtstart_obj, datetime):
-                fecha_inicio = dtstart_obj.isoformat()
-            elif isinstance(dtstart_obj, date):
-                fecha_inicio = dtstart_obj.strftime("%Y-%m-%d")
-            else:
-                fecha_inicio = None
+        clean_events.append({
+            "id_evento": str(component.get("uid", "")),
+            "materia_codigo": course_code,
+            "titulo": title,
+            "fecha_inicio": start_text,
+            "url_canvas": str(component.get("url", "")),
+            "descripcion": description,
+        })
 
-            descripcion_raw = str(componente.get("description", ""))
-            descripcion_limpia = (
-                descripcion_raw.replace("\\n", "\n")
-                .replace("\\,", ",")
-                .strip()
-            )
+    with open(archivo_json_salida, "w", encoding="utf-8") as json_file:
+        json.dump(clean_events, json_file, ensure_ascii=False, indent=4)
 
-            if (
-                palabra_clave
-                and palabra_clave.lower() not in titulo.lower()
-                and palabra_clave.lower() not in descripcion_limpia.lower()
-            ):
-                continue
-
-            eventos_limpios.append({
-                "id_evento": str(componente.get("uid", "")),
-                "materia_codigo": codigo_materia,
-                "titulo": titulo,
-                "fecha_inicio": fecha_inicio,
-                "url_canvas": str(componente.get("url", "")),
-                "descripcion": descripcion_limpia,
-            })
-
-    with open(archivo_json_salida, "w", encoding="utf-8") as f_json:
-        json.dump(eventos_limpios, f_json, ensure_ascii=False, indent=4)
-
-    print(f"Éxito: {len(eventos_limpios)} eventos procesados y guardados.")
+    return len(clean_events)
