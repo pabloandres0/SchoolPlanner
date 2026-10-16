@@ -22,7 +22,7 @@ def validate_ics_url(url):
             first_bytes = response.read(512) 
     except Exception:
         return False   
-        return b"BEGIN:VCALENDAR" in first_bytes
+    return b"BEGIN:VCALENDAR" in first_bytes
 
 
 def save_url(url):
