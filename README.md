@@ -4,17 +4,25 @@
 
 ## About the Project
 
+<<<<<<< HEAD
 SchoolPlanner is a Canvas homework planner. It reads your Canvas calendar, finds the assignments due in the next 7 days, estimates how long each one will take, and builds an hour-by-hour study schedule around the times you are already busy.
 
 The estimates are **rule-based**: the program looks for a duration written in the assignment description (for example "Estimated time: 2 hours") and, if there is none, for keywords in the title such as "quiz", "essay" or "lab". It does not use AI models at the moment. AI-based estimation is listed under *Future work*.
 
 You can use SchoolPlanner from a graphical window (`gui.py`) or from a text menu (`main.py`). Both use the same code underneath and the same saved data.
+=======
+SchoolPlanner is a smart Canvas schedule task planner. It can estimate the time for completion for any homework using various methods (including AI) and can generate an optimal study and work schedule. It prioritizes tasks based on importance, estimated work time, and proximity to due dates so you can focus on the most important tasks.
+>>>>>>> 149a581a242f01815c7e5934ac691de95ca18fc9
 
 ## Getting Started & Installation
 
 Before doing anything else, clone the GitHub repository to your computer.
 
+<<<<<<< HEAD
 **Requirements:** Python 3.10 or newer. Tkinter, which the window uses, comes with the installers from python.org for Windows and macOS. (On macOS with Homebrew Python, run `brew install python-tk` once.)
+=======
+For AI features to work, you'll need to obtain your own Gemini API key (free or paid) from [Google AI Studio](https://aistudio.google.com/u/0/api-keys)
+>>>>>>> 149a581a242f01815c7e5934ac691de95ca18fc9
 
 ### 1. Open Your Terminal or Command Prompt
 
@@ -53,7 +61,26 @@ In the same terminal window, run the installation command:
 
 Once the installation is complete, launch the application from the same terminal window.
 
+<<<<<<< HEAD
 **Graphical interface (recommended):**
+=======
+* **Windows:**
+  ```cmd
+  python main.py
+  ```
+* **macOS:**
+  ```bash
+  python3 main.py
+  ```
+## Get Your Gemini API key.
+
+* Visit Google AI Studio's [API panel](https://aistudio.google.com/u/0/api-keys)
+* Click on "Create API key"
+* Follow the steps provided
+* Copy the API key
+* Go back to SchoolPlanner and paste the API key in the input box
+
+>>>>>>> 149a581a242f01815c7e5934ac691de95ca18fc9
 
 * **Windows:** `python gui.py`
 * **macOS:** `python3 gui.py`
@@ -74,6 +101,7 @@ To use your real calendar, open Canvas, go to **Calendar > Calendar Feed**, copy
 
 ## Implemented Features
 
+<<<<<<< HEAD
 * Save your Canvas calendar link (the link is checked first; `webcal://` links are accepted).
 * Download and clean the assignments from the Canvas calendar.
 * Filter the assignments due in the next 7 days.
@@ -122,6 +150,17 @@ SchoolPlanner/
 └── files/                      # Created at run time (not uploaded): link, events, priorities,
                                 # busy hours, schedule
 ```
+=======
+* Download the link of Canvas Calendar
+* Download and clean the homeworks
+* Filter the homeworks for the next 7 days
+* Estimate hours with key words
+* Estimate hours using AI and makes a step-by-step plan
+* Priotize the nearest assignments
+* Generate a calendar by blocks
+* Export to .ics for your preferred calendar tools (Google Calendar, Apple Calendar, Outlook)
+* Locally saves data between for future usage of the application.
+>>>>>>> 149a581a242f01815c7e5934ac691de95ca18fc9
 
 ## Impact of this project
 

@@ -8,6 +8,7 @@ from urllib.error import URLError
 
 import scheduler
 import store_ics
+import ai_assistant
 from fetch import download_calendar, load_saved_url
 from main import get_week_tasks
 from paths import EVENTS_PATH, EXPORT_PATH, ICS_PATH, SCHEDULE_PATH
@@ -54,14 +55,14 @@ def run_in_background(app, work, on_success):
     def worker():
         try:
             results.put(("ok", work()))
-        except Exception as error:      
+        except Exception as error:
             results.put(("error", error))
 
     def check_for_result():
         try:
             kind, value = results.get_nowait()
         except queue.Empty:
-            app["root"].after(100, check_for_result)   
+            app["root"].after(100, check_for_result)
             return
         set_busy(app, False)
         if kind == "ok":
@@ -121,6 +122,14 @@ def describe_events():
     return f"{count} events are saved on this computer."
 
 
+def describe_ai_status():
+    """Return a sentence indicating whether Gemini AI is available."""
+    if ai_assistant.load_api_key():
+        cache = ai_assistant.load_ai_cache()
+        return f"✦ Gemini AI: Active ({len(cache)} assignment plans cached)"
+    return "✦ Gemini AI: No API key found (files/geminikeys.json)"
+
+
 def build_setup_tab(app, notebook):
     """Tab 1: paste the Canvas feed link, or load the demo calendar."""
     tab = ttk.Frame(notebook, padding=16)
@@ -137,7 +146,7 @@ def build_setup_tab(app, notebook):
     except EXPECTED_ERRORS:
         saved_url = ""
     url_var = tk.StringVar(value=saved_url)
-    url_entry = ttk.Entry(tab, textvariable=url_var, width=80, show="*") 
+    url_entry = ttk.Entry(tab, textvariable=url_var, width=80, show="*")
     url_entry.pack(anchor="w")
 
     show_var = tk.BooleanVar(value=False)
@@ -149,12 +158,14 @@ def build_setup_tab(app, notebook):
                     command=toggle_link_visibility).pack(anchor="w", pady=4)
 
     info_label = ttk.Label(tab, text=describe_events())
+    ai_status_label = ttk.Label(tab, text=describe_ai_status(), foreground="#5c32a8")
 
     def finish_loading(count, source):
         """Common ending for both ways of loading a calendar."""
         info_label.config(text=describe_events())
+        ai_status_label.config(text=describe_ai_status())
         set_status(app, f"{count} events loaded from {source}.")
-        app["notebook"].select(1)        
+        app["notebook"].select(1)
 
     def on_download_clicked():
         url = store_ics.normalize_url(url_var.get())
@@ -201,32 +212,313 @@ def build_setup_tab(app, notebook):
     app["busy_buttons"] += [download_button, sample_button]
 
     info_label.pack(anchor="w", pady=(8, 0))
+    ai_status_label.pack(anchor="w", pady=(2, 0))
+
+    # Gemini API Key section
+    ttk.Separator(tab, orient="horizontal").pack(fill="x", pady=(16, 12))
+    ttk.Label(tab, text="Google AI Studio Gemini API Key", font=HEADING_FONT).pack(anchor="w")
+    ttk.Label(
+        tab, justify="left",
+        text="Optional: Enter your API key to enable AI work time estimation and step-by-step action plans."
+    ).pack(anchor="w", pady=(4, 8))
+
+    saved_key = ai_assistant.load_api_key() or ""
+    key_var = tk.StringVar(value=saved_key)
+
+    key_row = ttk.Frame(tab)
+    key_row.pack(anchor="w", fill="x")
+
+    key_entry = ttk.Entry(key_row, textvariable=key_var, width=54, show="*")
+    key_entry.pack(side="left", padx=(0, 8))
+
+    def on_save_key():
+        new_key = key_var.get().strip()
+        try:
+            ai_assistant.save_api_key(new_key)
+            ai_status_label.config(text=describe_ai_status())
+            set_status(app, "Gemini API key saved to files/geminikeys.json.")
+            messagebox.showinfo(APP_TITLE, "Gemini API key saved.")
+        except Exception as error:
+            show_error(app, error)
+
+    save_key_button = ttk.Button(key_row, text="Save", command=on_save_key)
+    save_key_button.pack(side="left", padx=(0, 8))
+
+    show_key_var = tk.BooleanVar(value=False)
+
+    def toggle_key_visibility():
+        key_entry.config(show="" if show_key_var.get() else "*")
+
+    ttk.Checkbutton(key_row, text="Show key", variable=show_key_var,
+                    command=toggle_key_visibility).pack(side="left")
+
     return tab
 
 
+def show_ai_dialog(app, task, on_applied):
+    """Modal dialog displaying the Gemini AI workload estimate and action plan checklist."""
+    dialog = tk.Toplevel(app["root"])
+    dialog.title(f"Gemini AI Plan - {task['title']}")
+    dialog.geometry("620x540")
+    dialog.minsize(500, 420)
+    dialog.transient(app["root"])
+    dialog.grab_set()
+
+    content = ttk.Frame(dialog, padding=16)
+    content.pack(fill="both", expand=True)
+
+    header_frame = ttk.Frame(content)
+    header_frame.pack(fill="x", pady=(0, 10))
+    ttk.Label(header_frame, text=f"✦ Gemini AI Plan: {task['course']}", font=HEADING_FONT, foreground="#5c32a8").pack(anchor="w")
+    ttk.Label(header_frame, text=task["title"], font=("TkDefaultFont", 11, "bold")).pack(anchor="w", pady=(2, 0))
+    due_str = task["due"].strftime("%a %m-%d %H:%M") if hasattr(task["due"], "strftime") else str(task["due"])
+    ttk.Label(header_frame, text=f"Due: {due_str} | Current estimate: {task['hours']:g} h ({task['source']})").pack(anchor="w")
+
+    body_frame = ttk.Frame(content)
+    body_frame.pack(fill="both", expand=True)
+
+    def render_analysis(analysis):
+        for widget in body_frame.winfo_children():
+            widget.destroy()
+
+        hours = analysis.get("estimated_hours", task["hours"])
+        reasoning = analysis.get("reasoning", "No rationale provided.")
+        subtasks = analysis.get("subtasks", [])
+
+        card = ttk.LabelFrame(body_frame, text=" Recommended Workload ", padding=10)
+        card.pack(fill="x", pady=(0, 10))
+
+        work_row = ttk.Frame(card)
+        work_row.pack(fill="x")
+        ttk.Label(work_row, text=f"{hours:g} hours", font=("TkDefaultFont", 14, "bold"), foreground="#5c32a8").pack(side="left")
+
+        def apply_hours():
+            try:
+                ai_assistant.apply_ai_estimate(task["id"], hours)
+            except Exception as err:
+                messagebox.showerror(APP_TITLE, f"Could not apply hours: {err}")
+                return
+            on_applied()
+            set_status(app, f"Applied AI workload ({hours:g} h) to '{task['title']}'.")
+            dialog.destroy()
+
+        apply_btn = ttk.Button(work_row, text=f"Apply {hours:g} Hours to Schedule", command=apply_hours)
+        apply_btn.pack(side="right")
+
+        ttk.Label(card, text=f"Rationale: {reasoning}", wraplength=560, justify="left").pack(anchor="w", pady=(6, 0))
+
+        plan_frame = ttk.LabelFrame(body_frame, text=f" Action Plan Checklist ({len(subtasks)} milestones) ", padding=10)
+        plan_frame.pack(fill="both", expand=True, pady=(0, 10))
+
+        text_container = ttk.Frame(plan_frame)
+        text_container.pack(fill="both", expand=True)
+
+        scrollbar = ttk.Scrollbar(text_container, orient="vertical")
+        text_widget = tk.Text(text_container, wrap="word", yscrollcommand=scrollbar.set,
+                              font=("TkDefaultFont", 10), padx=8, pady=8)
+        scrollbar.config(command=text_widget.yview)
+        scrollbar.pack(side="right", fill="y")
+        text_widget.pack(side="left", fill="both", expand=True)
+
+        for idx, step in enumerate(subtasks, start=1):
+            text_widget.insert("end", f"[{idx}]  {step}\n\n")
+        text_widget.config(state="disabled")
+
+        btn_bar = ttk.Frame(body_frame)
+        btn_bar.pack(fill="x", pady=(6, 0))
+
+        ttk.Button(btn_bar, text="Close", command=dialog.destroy).pack(side="left")
+        ttk.Button(btn_bar, text="↻ Re-analyze with Gemini", command=lambda: start_analysis(force_refresh=True)).pack(side="right")
+
+    def show_loading():
+        for widget in body_frame.winfo_children():
+            widget.destroy()
+        loading_frame = ttk.Frame(body_frame, padding=30)
+        loading_frame.pack(fill="both", expand=True)
+        ttk.Label(loading_frame, text="Analyzing assignment instructions with Gemini AI...",
+                  font=("TkDefaultFont", 11, "bold"), foreground="#5c32a8").pack(pady=(20, 4))
+        ttk.Label(loading_frame, text="Evaluating workload complexity, duration, and actionable milestones...").pack()
+        progress = ttk.Progressbar(loading_frame, mode="indeterminate", length=240)
+        progress.pack(pady=16)
+        progress.start(15)
+
+    def start_analysis(force_refresh=False):
+        has_key = ai_assistant.load_api_key() is not None
+        cache = ai_assistant.load_ai_cache()
+        cached_entry = cache.get(task["id"])
+
+        if not force_refresh and cached_entry:
+            render_analysis(cached_entry)
+            return
+
+        if not has_key:
+            messagebox.showerror(
+                APP_TITLE,
+                "No Gemini API key found.\n\n"
+                "Please place your Google AI Studio API key in files/geminikeys.json "
+                "or set the GEMINI_API_KEY environment variable."
+            )
+            dialog.destroy()
+            return
+
+        show_loading()
+
+        def do_work():
+            events = scheduler.load_events()
+            target_event = next((ev for ev in events if ev.get("id_evento") == task["id"]), None)
+            description = target_event.get("descripcion", "") if target_event else ""
+            return ai_assistant.analyze_assignment(
+                task["id"],
+                task["title"],
+                task["course"],
+                description,
+                force_refresh=True,
+            )
+
+        def worker():
+            try:
+                res = do_work()
+                dialog.after(0, lambda: render_analysis(res))
+            except Exception as e:
+                dialog.after(0, lambda: on_error(e))
+
+        def on_error(err):
+            for widget in body_frame.winfo_children():
+                widget.destroy()
+            err_frame = ttk.Frame(body_frame, padding=20)
+            err_frame.pack(fill="both", expand=True)
+            ttk.Label(err_frame, text="AI Analysis Failed", font=HEADING_FONT, foreground="#cc0000").pack(pady=(10, 4))
+            ttk.Label(err_frame, text=str(err), wraplength=500, justify="center").pack(pady=(0, 16))
+            ttk.Button(err_frame, text="Retry Analysis", command=lambda: start_analysis(force_refresh=True)).pack(pady=4)
+            ttk.Button(err_frame, text="Close", command=dialog.destroy).pack(pady=4)
+
+        threading.Thread(target=worker, daemon=True).start()
+
+    start_analysis(force_refresh=False)
+
+
 def build_assignments_tab(app, notebook):
-    """Tab 2: table of this week's assignments, with a priority selector."""
+    """Tab 2: table of this week's assignments, with priority selector, manual hours editing, and Gemini AI plan."""
     tab = ttk.Frame(notebook, padding=16)
     ttk.Label(tab, text="Step 2 - This week's assignments", font=HEADING_FONT).pack(anchor="w")
     hint_label = ttk.Label(tab, text="")
     hint_label.pack(anchor="w", pady=(4, 8))
 
-    columns = [("due", "Due", 130, "w"), ("course", "Course", 90, "w"),
-               ("title", "Assignment", 290, "w"), ("hours", "Est. hours", 80, "center"),
-               ("source", "Estimated from", 170, "w"), ("priority", "Priority", 80, "center")]
+    columns = [("due", "Due", 125, "w"), ("course", "Course", 85, "w"),
+               ("title", "Assignment", 240, "w"), ("hours", "Est. hours", 75, "center"),
+               ("source", "Estimated from", 140, "w"), ("priority", "Priority", 70, "center"),
+               ("ai_plan", "AI Plan", 75, "center")]
     tree = make_table(tab, columns)
+
+    # Inline hours editor (Entry widget floated over the treeview)
+    hours_entry_var = tk.StringVar()
+    hours_entry = ttk.Entry(tree, textvariable=hours_entry_var, width=7, justify="center")
+    _editing_iid = [None]  # mutable ref to current item being edited
+
+    def show_hours_editor(iid, current_hours):
+        """Position an Entry widget over the Est. hours cell for the given row."""
+        hours_entry_var.set(f"{current_hours:g}")
+        bbox = tree.bbox(iid, column="hours")
+        if not bbox:
+            return
+        x, y, w, h = bbox
+        hours_entry.place(x=x, y=y, width=max(w, 60), height=h)
+        hours_entry.focus_set()
+        hours_entry.select_range(0, "end")
+        _editing_iid[0] = iid
+
+    def hide_hours_editor():
+        hours_entry.place_forget()
+        _editing_iid[0] = None
+
+    def commit_hours_edit(event=None):
+        iid = _editing_iid[0]
+        if iid is None:
+            return
+        try:
+            value = float(hours_entry_var.get().strip().replace(",", "."))
+            if not (0.5 <= value <= 24.0):
+                raise ValueError("out of range")
+        except ValueError:
+            messagebox.showerror(APP_TITLE, "Enter a number between 0.5 and 24.")
+            hide_hours_editor()
+            return
+        position = int(iid)
+        task = app["tasks"][position]
+        try:
+            actual = ai_assistant.set_manual_hours(task["id"], value)
+        except Exception as err:
+            show_error(app, err)
+            hide_hours_editor()
+            return
+        hide_hours_editor()
+        refresh()
+        tree.selection_set(str(position))
+        set_status(app, f"Set '{task['title']}' to {actual:g} hours (manual).")
+
+    def cancel_hours_edit(event=None):
+        hide_hours_editor()
+
+    hours_entry.bind("<Return>", commit_hours_edit)
+    hours_entry.bind("<KP_Enter>", commit_hours_edit)
+    hours_entry.bind("<Escape>", cancel_hours_edit)
+    hours_entry.bind("<FocusOut>", cancel_hours_edit)
 
     controls = ttk.Frame(tab)
     controls.pack(fill="x", pady=(10, 0))
-    ttk.Label(controls, text="Priority of the selected assignment:").pack(side="left")
-    priority_box = ttk.Combobox(controls, values=PRIORITY_NAMES, state="readonly", width=10)
+    ttk.Label(controls, text="Priority:").pack(side="left")
+    priority_box = ttk.Combobox(controls, values=PRIORITY_NAMES, state="readonly", width=8)
     priority_box.current(1)
-    priority_box.pack(side="left", padx=8)
+    priority_box.pack(side="left", padx=4)
+
+    def apply_priority():
+        selection = tree.selection()
+        if not selection:
+            messagebox.showinfo(APP_TITLE, "Click an assignment in the table first.")
+            return
+        position = int(selection[0])
+        task = app["tasks"][position]
+        level = priority_box.current() + 1
+        try:
+            scheduler.save_priority(task["id"], level)
+        except EXPECTED_ERRORS as error:
+            show_error(app, error)
+            return
+        refresh()
+        tree.selection_set(str(position))
+        set_status(app, f"'{task['title']}' is now {PRIORITY_NAMES[level - 1].lower()} priority.")
+
+    ttk.Button(controls, text="Apply priority", command=apply_priority).pack(side="left", padx=(0, 8))
+
+    def edit_hours():
+        selection = tree.selection()
+        if not selection:
+            messagebox.showinfo(APP_TITLE, "Click an assignment in the table first.")
+            return
+        position = int(selection[0])
+        task = app["tasks"][position]
+        show_hours_editor(str(position), task["hours"])
+
+    ttk.Button(controls, text="✎ Edit Hours", command=edit_hours).pack(side="left", padx=(0, 8))
+
+    def open_ai_plan():
+        selection = tree.selection()
+        if not selection:
+            messagebox.showinfo(APP_TITLE, "Click an assignment in the table first.")
+            return
+        position = int(selection[0])
+        task = app["tasks"][position]
+        show_ai_dialog(app, task, on_applied=refresh)
+
+    ai_button = ttk.Button(controls, text="✦ AI Plan & Estimate", command=open_ai_plan)
+    ai_button.pack(side="left")
+
     total_label = ttk.Label(controls, text="")
     total_label.pack(side="right")
 
     def refresh():
         """Reload the table from the saved calendar and priorities."""
+        hide_hours_editor()
         clear_table(tree)
         try:
             tasks = get_week_tasks()
@@ -238,12 +530,14 @@ def build_assignments_tab(app, notebook):
                 text="" if tasks else "No assignments are due in the next 7 days.")
         app["tasks"] = tasks
 
+        ai_cache = ai_assistant.load_ai_cache()
         for position, task in enumerate(tasks):
             priority = scheduler.PRIORITY_LABELS.get(task["priority"], "normal")
+            has_plan = "Ready" if task["id"] in ai_cache else "-"
             tree.insert("", "end", iid=str(position), values=(
                 task["due"].strftime("%a %m-%d %H:%M"), task["course"], task["title"],
-                f"{task['hours']:g}", task["source"], priority.capitalize()))
-        total = sum(task["hours"] for task in tasks)      # arithmetic over the list
+                f"{task['hours']:g}", task["source"], priority.capitalize(), has_plan))
+        total = sum(task["hours"] for task in tasks)
         total_label.config(text=f"Total estimated work: {total:g} hours")
 
     def on_row_selected(_event):
@@ -252,25 +546,24 @@ def build_assignments_tab(app, notebook):
         if selection:
             priority_box.current(app["tasks"][int(selection[0])]["priority"] - 1)
 
-    def apply_priority():
-        selection = tree.selection()
-        if not selection:
-            messagebox.showinfo(APP_TITLE, "Click an assignment in the table first.")
+    def on_double_click(event):
+        """Double-click on Est. hours column to edit; on other columns open AI plan."""
+        region = tree.identify_region(event.x, event.y)
+        if region != "cell":
             return
-        position = int(selection[0])
-        task = app["tasks"][position]
-        level = priority_box.current() + 1 
-        try:
-            scheduler.save_priority(task["id"], level)
-        except EXPECTED_ERRORS as error:
-            show_error(app, error)
+        col = tree.identify_column(event.x)
+        iid = tree.identify_row(event.y)
+        if not iid:
             return
-        refresh()
-        tree.selection_set(str(position))   
-        set_status(app, f"'{task['title']}' is now {PRIORITY_NAMES[level - 1].lower()} priority.")
+        if col == "#4":  # Est. hours column (1-indexed, #0 is tree col)
+            position = int(iid)
+            task = app["tasks"][position]
+            show_hours_editor(iid, task["hours"])
+        else:
+            open_ai_plan()
 
     tree.bind("<<TreeviewSelect>>", on_row_selected)
-    ttk.Button(controls, text="Apply priority", command=apply_priority).pack(side="left")
+    tree.bind("<Double-1>", on_double_click)
 
     app["refreshers"]["assignments"] = refresh
     refresh()
@@ -378,7 +671,7 @@ def build_schedule_tab(app, notebook):
         if schedule.empty:
             summary_label.config(text="No schedule yet. Click 'Generate schedule'.")
             return
-        for date_text, day_rows in schedule.groupby("date"): 
+        for date_text, day_rows in schedule.groupby("date"):
             day_total = day_rows["hours"].sum()
             group = tree.insert("", "end", open=True, tags=("day",),
                                 text=f"{day_rows['day'].iloc[0]} {date_text}  ({day_total:g} h)")
@@ -452,7 +745,7 @@ def enable_sharp_text():
         from ctypes import windll
         windll.shcore.SetProcessDpiAwareness(1)
     except (ImportError, AttributeError, OSError):
-        pass         
+        pass
 
 
 def build_window():

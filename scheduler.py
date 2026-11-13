@@ -161,7 +161,10 @@ def get_week_assignments(events, now, keywords, priorities, days_ahead=DAYS_AHEA
             continue
 
         hours, source = estimate_hours(
-            event.get("titulo", ""), event.get("descripcion", ""), keywords
+            event.get("titulo", ""),
+            event.get("descripcion", ""),
+            keywords,
+            event_id=event.get("id_evento", ""),
         )
         tasks.append({
             "id": event.get("id_evento", ""),
