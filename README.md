@@ -57,6 +57,14 @@ Once the installation is complete, launch the application from the same terminal
   ```bash
   python3 main.py
   ```
+## Get Your Gemini API key.
+
+* Visit Google AI Studio's [API panel](https://aistudio.google.com/u/0/api-keys)
+* Click on "Create API key"
+* Follow the steps provided
+* Copy the API key
+* Go back to SchoolPlanner and paste the API key in the input box
+
 
 You are now ready to use SchoolPlanner!
 
@@ -66,6 +74,7 @@ You are now ready to use SchoolPlanner!
 * Download and clean the homeworks
 * Filter the homeworks for the next 7 days
 * Estimate hours with key words
+* Estimate hours using AI and makes a step-by-step plan
 * Priotize the nearest assignments
 * Generate a calendar by blocks
 * Export to .ics for your preferred calendar tools (Google Calendar, Apple Calendar, Outlook)
