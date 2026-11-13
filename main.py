@@ -110,7 +110,9 @@ def generate_schedule():
     for message in warnings:
         print("Warning:", message)
 
-    if schedule.empty:
+        if schedule.empty:
+        scheduler.clear_schedule()
+        print("The previously saved schedule was cleared because it no longer applies.")
         return
 
     scheduler.save_schedule(schedule)

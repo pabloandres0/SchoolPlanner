@@ -126,6 +126,30 @@ def load_schedule(path=SCHEDULE_PATH):
         return pd.DataFrame()
     return pd.read_csv(path)
 
+def clear_schedule(schedule_path=SCHEDULE_PATH, export_path=EXPORT_PATH):
+    """Delete the saved schedule and its .ics export."""
+    schedule_path.unlink(missing_ok=True)
+    export_path.unlink(missing_ok=True)
+
+
+def save_busy_hours(busy_blocks, path=BUSY_HOURS_PATH):
+    """Rewrite busy_hours.csv from a list of (weekday, start_min, end_min)."""
+    rows = [{
+        "day": DAY_NAMES[weekday],
+        "start": f"{start // 60:02d}:{start % 60:02d}",
+        "end": f"{end // 60:02d}:{end % 60:02d}",
+    } for weekday, start, end in busy_blocks]
+    path.parent.mkdir(parents=True, exist_ok=True)
+    pd.DataFrame(rows, columns=["day", "start", "end"]).to_csv(path, index=False)
+
+
+def delete_busy_hour(position, path=BUSY_HOURS_PATH):
+    """Remove the busy block at `position` (0-based, in load_busy_hours order)."""
+    busy_blocks, _ = load_busy_hours(path)
+    if not 0 <= position < len(busy_blocks):
+        raise ValueError("That busy block does not exist.")
+    del busy_blocks[position]
+    save_busy_hours(busy_blocks, path)
 
 def get_week_assignments(events, now, keywords, priorities, days_ahead=DAYS_AHEAD):
  
