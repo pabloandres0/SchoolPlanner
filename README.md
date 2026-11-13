@@ -4,11 +4,13 @@
 
 ## About the Project
 
-SchoolPlanner is a smart Canvas schedule task planner. It implements AI features that analyzes your homework assignments along with their estimated completion times to generate an optimal study and work schedule. It prioritizes tasks based on importance, estimated work time, and proximity to due dates so you can focus on the most important tasks.
+SchoolPlanner is a smart Canvas schedule task planner. It can estimate the time for completion for any homework using various methods (including AI) and can generate an optimal study and work schedule. It prioritizes tasks based on importance, estimated work time, and proximity to due dates so you can focus on the most important tasks.
 
 ## Getting Started & Installation
 
 Before doing anything else, clone the GitHub repository to your computer.
+
+For AI features to work, you'll need to obtain your own Gemini API key (free or paid) from [Google AI Studio](https://aistudio.google.com/u/0/api-keys)
 
 ### 1. Open Your Terminal or Command Prompt
 
