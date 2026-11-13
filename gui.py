@@ -219,8 +219,7 @@ def build_setup_tab(app, notebook):
     ttk.Label(tab, text="Google AI Studio Gemini API Key", font=HEADING_FONT).pack(anchor="w")
     ttk.Label(
         tab, justify="left",
-        text="Optional: Enter your API key to enable AI workload estimation and step-by-step action plans.\n"
-             "Stored locally in files/geminikeys.json with 'key' as the only entry.",
+        text="Optional: Enter your API key to enable AI work time estimation and step-by-step action plans."
     ).pack(anchor="w", pady=(4, 8))
 
     saved_key = ai_assistant.load_api_key() or ""
