@@ -213,6 +213,46 @@ def build_setup_tab(app, notebook):
 
     info_label.pack(anchor="w", pady=(8, 0))
     ai_status_label.pack(anchor="w", pady=(2, 0))
+
+    # Gemini API Key section
+    ttk.Separator(tab, orient="horizontal").pack(fill="x", pady=(16, 12))
+    ttk.Label(tab, text="Google AI Studio Gemini API Key", font=HEADING_FONT).pack(anchor="w")
+    ttk.Label(
+        tab, justify="left",
+        text="Optional: Enter your API key to enable AI workload estimation and step-by-step action plans.\n"
+             "Stored locally in files/geminikeys.json with 'key' as the only entry.",
+    ).pack(anchor="w", pady=(4, 8))
+
+    saved_key = ai_assistant.load_api_key() or ""
+    key_var = tk.StringVar(value=saved_key)
+
+    key_row = ttk.Frame(tab)
+    key_row.pack(anchor="w", fill="x")
+
+    key_entry = ttk.Entry(key_row, textvariable=key_var, width=54, show="*")
+    key_entry.pack(side="left", padx=(0, 8))
+
+    def on_save_key():
+        new_key = key_var.get().strip()
+        try:
+            ai_assistant.save_api_key(new_key)
+            ai_status_label.config(text=describe_ai_status())
+            set_status(app, "Gemini API key saved to files/geminikeys.json.")
+            messagebox.showinfo(APP_TITLE, "Gemini API key saved.")
+        except Exception as error:
+            show_error(app, error)
+
+    save_key_button = ttk.Button(key_row, text="Save", command=on_save_key)
+    save_key_button.pack(side="left", padx=(0, 8))
+
+    show_key_var = tk.BooleanVar(value=False)
+
+    def toggle_key_visibility():
+        key_entry.config(show="" if show_key_var.get() else "*")
+
+    ttk.Checkbutton(key_row, text="Show key", variable=show_key_var,
+                    command=toggle_key_visibility).pack(side="left")
+
     return tab
 
 

@@ -38,6 +38,14 @@ def load_api_key():
         return None
 
 
+def save_api_key(key):
+    """Store the Gemini API key in files/geminikeys.json with 'key' as the only entry."""
+    FILES_DIR.mkdir(parents=True, exist_ok=True)
+    with GEMINI_KEYS_PATH.open("w", encoding="utf-8") as f:
+        json.dump({"key": key.strip()}, f, indent=2)
+    return True
+
+
 def load_ai_cache():
     if not AI_CACHE_PATH.is_file():
         return {}

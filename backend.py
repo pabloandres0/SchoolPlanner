@@ -64,6 +64,7 @@ def get_status():
         "schedule_count": schedule_count,
         "config_path": str(CONFIG_PATH),
         "export_path": str(EXPORT_PATH),
+        "gemini_key": ai_assistant.load_api_key() or "",
     }
 
 
@@ -146,9 +147,15 @@ def set_manual_hours(event_id: str, hours: float):
 
 
 def get_ai_status():
-    has_key = ai_assistant.load_api_key() is not None
+    api_key = ai_assistant.load_api_key() or ""
+    has_key = bool(api_key)
     cache = ai_assistant.load_ai_cache()
-    return {"configured": has_key, "cached_count": len(cache)}
+    return {"configured": has_key, "cached_count": len(cache), "key": api_key}
+
+
+def save_gemini_key(key: str):
+    ai_assistant.save_api_key(key.strip())
+    return {"success": True, "configured": bool(key.strip())}
 
 
 def set_priority(event_id: str, priority: int):
@@ -317,6 +324,7 @@ DISPATCH = {
     "apply_ai_estimate": lambda args: apply_ai_estimate(args["event_id"], float(args["hours"])),
     "set_manual_hours": lambda args: set_manual_hours(args["event_id"], float(args["hours"])),
     "get_ai_status": lambda args: get_ai_status(),
+    "save_gemini_key": lambda args: save_gemini_key(args.get("key", "")),
 }
 
 
