@@ -1,7 +1,9 @@
 import csv
 import re
+from pathlib import Path
 
 from paths import KEYWORDS_PATH
+import ai_assistant
 
 DEFAULT_HOURS = 1.5      
 MIN_HOURS = 0.5           
@@ -48,14 +50,27 @@ def find_keyword_hours(text, keywords):
     return best_match
 
 
-def estimate_hours(title, description, keywords):
+def estimate_hours(title, description, keywords, event_id=None):
+    # Tier 0: Check if an AI estimate was applied for this assignment
+    if event_id:
+        cache = ai_assistant.load_ai_cache()
+        if event_id in cache:
+            entry = cache[event_id]
+            if "applied_hours" in entry:
+                return round_to_half_hour(entry["applied_hours"]), "Gemini AI"
+            elif "estimated_hours" in entry:
+                return round_to_half_hour(entry["estimated_hours"]), "Gemini AI"
+
+    # Tier 1: Explicit stated duration in prompt/description
     stated = find_stated_duration(title + " " + description)
     if stated is not None:
         return round_to_half_hour(stated), "stated in description"
 
+    # Tier 2: Keyword match from duration_keywords.csv
     for text in (title, description):
         match = find_keyword_hours(text, keywords)
         if match is not None:
             return round_to_half_hour(match[1]), f"keyword '{match[0]}'"
 
+    # Tier 3 fallback: default workload
     return DEFAULT_HOURS, "default"
