@@ -140,6 +140,11 @@ def apply_ai_estimate(event_id: str, hours: float):
     return {"success": True, "event_id": event_id, "hours": float(hours)}
 
 
+def set_manual_hours(event_id: str, hours: float):
+    actual = ai_assistant.set_manual_hours(event_id, float(hours))
+    return {"success": True, "event_id": event_id, "hours": actual}
+
+
 def get_ai_status():
     has_key = ai_assistant.load_api_key() is not None
     cache = ai_assistant.load_ai_cache()
@@ -310,6 +315,7 @@ DISPATCH = {
     "export_schedule": lambda args: export_schedule(),
     "analyze_assignment": lambda args: analyze_assignment(args["event_id"], args.get("force_refresh", False)),
     "apply_ai_estimate": lambda args: apply_ai_estimate(args["event_id"], float(args["hours"])),
+    "set_manual_hours": lambda args: set_manual_hours(args["event_id"], float(args["hours"])),
     "get_ai_status": lambda args: get_ai_status(),
 }
 

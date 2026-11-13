@@ -55,14 +55,14 @@ def run_in_background(app, work, on_success):
     def worker():
         try:
             results.put(("ok", work()))
-        except Exception as error:      
+        except Exception as error:
             results.put(("error", error))
 
     def check_for_result():
         try:
             kind, value = results.get_nowait()
         except queue.Empty:
-            app["root"].after(100, check_for_result)   
+            app["root"].after(100, check_for_result)
             return
         set_busy(app, False)
         if kind == "ok":
@@ -146,7 +146,7 @@ def build_setup_tab(app, notebook):
     except EXPECTED_ERRORS:
         saved_url = ""
     url_var = tk.StringVar(value=saved_url)
-    url_entry = ttk.Entry(tab, textvariable=url_var, width=80, show="*") 
+    url_entry = ttk.Entry(tab, textvariable=url_var, width=80, show="*")
     url_entry.pack(anchor="w")
 
     show_var = tk.BooleanVar(value=False)
@@ -165,7 +165,7 @@ def build_setup_tab(app, notebook):
         info_label.config(text=describe_events())
         ai_status_label.config(text=describe_ai_status())
         set_status(app, f"{count} events loaded from {source}.")
-        app["notebook"].select(1)        
+        app["notebook"].select(1)
 
     def on_download_clicked():
         url = store_ics.normalize_url(url_var.get())
@@ -359,17 +359,71 @@ def show_ai_dialog(app, task, on_applied):
 
 
 def build_assignments_tab(app, notebook):
-    """Tab 2: table of this week's assignments, with priority selector and Gemini AI plan."""
+    """Tab 2: table of this week's assignments, with priority selector, manual hours editing, and Gemini AI plan."""
     tab = ttk.Frame(notebook, padding=16)
     ttk.Label(tab, text="Step 2 - This week's assignments", font=HEADING_FONT).pack(anchor="w")
     hint_label = ttk.Label(tab, text="")
     hint_label.pack(anchor="w", pady=(4, 8))
 
     columns = [("due", "Due", 125, "w"), ("course", "Course", 85, "w"),
-               ("title", "Assignment", 260, "w"), ("hours", "Est. hours", 75, "center"),
-               ("source", "Estimated from", 150, "w"), ("priority", "Priority", 75, "center"),
-               ("ai_plan", "AI Plan", 80, "center")]
+               ("title", "Assignment", 240, "w"), ("hours", "Est. hours", 75, "center"),
+               ("source", "Estimated from", 140, "w"), ("priority", "Priority", 70, "center"),
+               ("ai_plan", "AI Plan", 75, "center")]
     tree = make_table(tab, columns)
+
+    # Inline hours editor (Entry widget floated over the treeview)
+    hours_entry_var = tk.StringVar()
+    hours_entry = ttk.Entry(tree, textvariable=hours_entry_var, width=7, justify="center")
+    _editing_iid = [None]  # mutable ref to current item being edited
+
+    def show_hours_editor(iid, current_hours):
+        """Position an Entry widget over the Est. hours cell for the given row."""
+        hours_entry_var.set(f"{current_hours:g}")
+        bbox = tree.bbox(iid, column="hours")
+        if not bbox:
+            return
+        x, y, w, h = bbox
+        hours_entry.place(x=x, y=y, width=max(w, 60), height=h)
+        hours_entry.focus_set()
+        hours_entry.select_range(0, "end")
+        _editing_iid[0] = iid
+
+    def hide_hours_editor():
+        hours_entry.place_forget()
+        _editing_iid[0] = None
+
+    def commit_hours_edit(event=None):
+        iid = _editing_iid[0]
+        if iid is None:
+            return
+        try:
+            value = float(hours_entry_var.get().strip().replace(",", "."))
+            if not (0.5 <= value <= 24.0):
+                raise ValueError("out of range")
+        except ValueError:
+            messagebox.showerror(APP_TITLE, "Enter a number between 0.5 and 24.")
+            hide_hours_editor()
+            return
+        position = int(iid)
+        task = app["tasks"][position]
+        try:
+            actual = ai_assistant.set_manual_hours(task["id"], value)
+        except Exception as err:
+            show_error(app, err)
+            hide_hours_editor()
+            return
+        hide_hours_editor()
+        refresh()
+        tree.selection_set(str(position))
+        set_status(app, f"Set '{task['title']}' to {actual:g} hours (manual).")
+
+    def cancel_hours_edit(event=None):
+        hide_hours_editor()
+
+    hours_entry.bind("<Return>", commit_hours_edit)
+    hours_entry.bind("<KP_Enter>", commit_hours_edit)
+    hours_entry.bind("<Escape>", cancel_hours_edit)
+    hours_entry.bind("<FocusOut>", cancel_hours_edit)
 
     controls = ttk.Frame(tab)
     controls.pack(fill="x", pady=(10, 0))
@@ -385,17 +439,28 @@ def build_assignments_tab(app, notebook):
             return
         position = int(selection[0])
         task = app["tasks"][position]
-        level = priority_box.current() + 1 
+        level = priority_box.current() + 1
         try:
             scheduler.save_priority(task["id"], level)
         except EXPECTED_ERRORS as error:
             show_error(app, error)
             return
         refresh()
-        tree.selection_set(str(position))   
+        tree.selection_set(str(position))
         set_status(app, f"'{task['title']}' is now {PRIORITY_NAMES[level - 1].lower()} priority.")
 
     ttk.Button(controls, text="Apply priority", command=apply_priority).pack(side="left", padx=(0, 8))
+
+    def edit_hours():
+        selection = tree.selection()
+        if not selection:
+            messagebox.showinfo(APP_TITLE, "Click an assignment in the table first.")
+            return
+        position = int(selection[0])
+        task = app["tasks"][position]
+        show_hours_editor(str(position), task["hours"])
+
+    ttk.Button(controls, text="✎ Edit Hours", command=edit_hours).pack(side="left", padx=(0, 8))
 
     def open_ai_plan():
         selection = tree.selection()
@@ -414,6 +479,7 @@ def build_assignments_tab(app, notebook):
 
     def refresh():
         """Reload the table from the saved calendar and priorities."""
+        hide_hours_editor()
         clear_table(tree)
         try:
             tasks = get_week_tasks()
@@ -441,8 +507,24 @@ def build_assignments_tab(app, notebook):
         if selection:
             priority_box.current(app["tasks"][int(selection[0])]["priority"] - 1)
 
+    def on_double_click(event):
+        """Double-click on Est. hours column to edit; on other columns open AI plan."""
+        region = tree.identify_region(event.x, event.y)
+        if region != "cell":
+            return
+        col = tree.identify_column(event.x)
+        iid = tree.identify_row(event.y)
+        if not iid:
+            return
+        if col == "#4":  # Est. hours column (1-indexed, #0 is tree col)
+            position = int(iid)
+            task = app["tasks"][position]
+            show_hours_editor(iid, task["hours"])
+        else:
+            open_ai_plan()
+
     tree.bind("<<TreeviewSelect>>", on_row_selected)
-    tree.bind("<Double-1>", lambda _event: open_ai_plan())
+    tree.bind("<Double-1>", on_double_click)
 
     app["refreshers"]["assignments"] = refresh
     refresh()
@@ -550,7 +632,7 @@ def build_schedule_tab(app, notebook):
         if schedule.empty:
             summary_label.config(text="No schedule yet. Click 'Generate schedule'.")
             return
-        for date_text, day_rows in schedule.groupby("date"): 
+        for date_text, day_rows in schedule.groupby("date"):
             day_total = day_rows["hours"].sum()
             group = tree.insert("", "end", open=True, tags=("day",),
                                 text=f"{day_rows['day'].iloc[0]} {date_text}  ({day_total:g} h)")
@@ -624,7 +706,7 @@ def enable_sharp_text():
         from ctypes import windll
         windll.shcore.SetProcessDpiAwareness(1)
     except (ImportError, AttributeError, OSError):
-        pass         
+        pass
 
 
 def build_window():

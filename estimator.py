@@ -51,15 +51,14 @@ def find_keyword_hours(text, keywords):
 
 
 def estimate_hours(title, description, keywords, event_id=None):
-    # Tier 0: Check if an AI estimate was applied for this assignment
+    # Tier 0: Check if a manual or AI estimate was explicitly applied for this assignment
     if event_id:
         cache = ai_assistant.load_ai_cache()
-        if event_id in cache:
-            entry = cache[event_id]
-            if "applied_hours" in entry:
-                return round_to_half_hour(entry["applied_hours"]), "Gemini AI"
-            elif "estimated_hours" in entry:
-                return round_to_half_hour(entry["estimated_hours"]), "Gemini AI"
+        entry = cache.get(event_id)
+        if entry and "applied_hours" in entry:
+            has_ai = "reasoning" in entry or "subtasks" in entry
+            source = "Gemini AI" if has_ai else "manual"
+            return round_to_half_hour(entry["applied_hours"]), source
 
     # Tier 1: Explicit stated duration in prompt/description
     stated = find_stated_duration(title + " " + description)

@@ -153,3 +153,15 @@ def apply_ai_estimate(event_id, hours):
         cache[event_id]["applied_hours"] = float(hours)
         save_ai_cache(cache)
     return True
+
+
+def set_manual_hours(event_id, hours):
+    """Save a manually entered duration override for an assignment."""
+    hours = round_to_half_hour(hours)
+    cache = load_ai_cache()
+    if event_id in cache:
+        cache[event_id]["applied_hours"] = hours
+    else:
+        cache[event_id] = {"applied_hours": hours}
+    save_ai_cache(cache)
+    return hours
