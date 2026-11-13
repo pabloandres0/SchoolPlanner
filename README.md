@@ -154,5 +154,5 @@ SchoolPlanner solves this by breaking work down into a customized schedule tailo
 
 ## Demo Video
 
-- [Phase 3 demo (graphical interface)](PASTE-THE-NEW-VIDEO-LINK-HERE)
+- [Phase 3 demo (graphical interface)](https://drive.google.com/file/d/1ETMmF1GgJPOC7sMMqFLYSTv69WEKJCmq/view?usp=drivesdk)
 - [Phase 2 prototype demo](https://drive.google.com/file/d/1Zyqx58Io2WkDO-PwYeMSOpKwedRa0rbh/view?usp=sharing)
